@@ -6,11 +6,12 @@ var ErrProductNotFound = fmt.Errorf("Product not found")
 
 type Product struct {
 	ID    int     `json:"id"` // Unique identifier for the product
+	Name  string  `json:"name"`
 	Price float32 `json:"price"`
 }
 
-func NewProduct(id int, price float32) *Product {
-	return &Product{id, price}
+func NewProduct(id int, name string, price float32) *Product {
+	return &Product{id, name, price}
 }
 
 // GetProductByID returns a single product which matches the id from the
@@ -38,12 +39,14 @@ func findIndexByProductID(id int) int {
 }
 
 var productList = []*Product{
-	&Product{
+	{
 		ID:    1,
+		Name:  "espresso",
 		Price: 2.45,
 	},
-	&Product{
+	{
 		ID:    2,
+		Name:  "americano",
 		Price: 1.99,
 	},
 }
