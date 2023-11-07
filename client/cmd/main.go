@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
-	"currency/client/handlers"
+	"currency/client/internal/business"
+	"currency/client/internal/entity"
+	"currency/client/internal/repository/rpc"
+	"currency/client/internal/repository/storage"
+	"currency/client/internal/transport/api"
 	"currency/client/protos/currency"
 	"net/http"
 	"os"
@@ -18,6 +22,19 @@ import (
 
 var bindAddress = env.String("BIND_ADDRESS", false, ":9091", "Bind address for the server")
 var logLevel = env.String("LOG_LEVEL", false, "debug", "Log output level for the server [debug, info, trace]")
+
+var productList = []*entity.Product{
+	{
+		ID:    1,
+		Name:  "espresso",
+		Price: 2.45,
+	},
+	{
+		ID:    2,
+		Name:  "americano",
+		Price: 1.99,
+	},
+}
 
 func main() {
 	env.Parse()
@@ -39,18 +56,26 @@ func main() {
 
 	defer conn.Close()
 
+	// storage
+	memStore := storage.NewMemStore(productList)
+
 	// create client
 	cc := currency.NewCurrencyClient(conn)
+	rpcClient := rpc.NewRPCClient(cc)
+
+	// business
+	business := business.NewBusiness(memStore, rpcClient, time.Duration(2)*time.Second, l)
 
 	// create the handlers
-	ph := handlers.NewProducts(l, cc)
+	apiHandler := api.NewAPI(business, l)
 
 	// create a new serve mux and register the handlers
 	sm := mux.NewRouter()
 
 	// handlers for API
 	getR := sm.Methods(http.MethodGet).Subrouter()
-	getR.HandleFunc("/products/{id:[0-9]+}", ph.GetProduct)
+	getR.HandleFunc("/products/{id:[0-9]+}", apiHandler.GetProduct).Queries("base", "{[A-Z]{3}}", "dest", "{[A-Z]{3}}")
+	getR.HandleFunc("/products/{id:[0-9]+}", apiHandler.GetProduct)
 
 	ch := gohandlers.CORS(gohandlers.AllowedOrigins([]string{"*"}))
 
